@@ -1,0 +1,25 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - $(aws ecr get-login --no-include-email)
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker build -t docker-pets:new -f build/Dockerfile_composer .
+      - docker tag docker-pets:new $account_id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-pets:$ambiente-$CODEBUILD_BUILD_NUMBER
+      - docker tag docker-pets:new $account_id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-pets:$ambiente-latest
+      - |
+        if [ "$ambiente" = "prod" ] ; then
+          docker tag docker-pets:new $account_id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-pets:latest
+        fi
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - echo $account_id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-pets:$ambiente-$CODEBUILD_BUILD_NUMBER
+      - docker push $account_id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-pets:$ambiente-$CODEBUILD_BUILD_NUMBER
+      - docker push $account_id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-pets:$ambiente-latest
