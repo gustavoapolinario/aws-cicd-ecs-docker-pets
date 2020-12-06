@@ -1,0 +1,266 @@
+Description: >
+  ECS to run the docker 
+Parameters: 
+
+  VPC:
+    Description: The VPC that the ECS cluster is deployed to
+    Type: AWS::EC2::VPC::Id
+    
+  Subnets:
+    Description: Please provide the ECS Cluster ID that this service should run on
+    Type: String
+    
+  Listener:
+    Description: The Application Load Balancer listener to register with
+    Type: String
+    
+  TaskCpu:
+    Description: How many ECS hosts do you want to initially deploy?
+    Type: Number
+    Default: 512
+    AllowedValues: [ "256", "512", "1024", "2048", "4096" ]
+    ConstraintDescription: "must be a valid CPU for TaskDefinition."
+    
+  TaskMem:
+    Description: How many ECS hosts do you want to initially deploy?
+    Type: Number
+    Default: 1024
+    AllowedValues: [ "512", "1024", "2048", "3072", "4096", "5120", "6144", "7168", "8192", "9216", "10240", "11264", 
+            "12288", "13312", "14336", "15360", "16384", "17408", "18432", "19456", "20480", "21504", "22528", 
+            "23552", "24576", "25600", "26624", "27648", "28672", "29696", "30720" ]
+    ConstraintDescription: "must be a valid Memory for TaskDefinition."
+    
+  DesiredContainers:
+    Description: How many Containers to run?
+    Type: Number
+    Default: 1
+
+  MinContainers:
+    Description: How many Containers is the minimal capacity
+    Type: Number
+    Default: 1
+
+  MaxContainers:
+    Description: How many Containers is the maximum capacity
+    Type: Number
+    Default: 4
+    
+  DockerVersion:
+    Description: Version of Apache Docker Image
+    Type: String
+    Default: latest
+
+  LoadBalancerFullName:
+    Description: The Application Load Balancer. Needed to create Alarm
+    Type: String
+
+  ParentStackName:
+    Description: Name of parent stack to use in LB name
+    Type: String
+
+  LoadBalancerSecurityGroup:
+    Description: ALB security group to Allow trafic with Container
+    Type: String
+    
+Resources:
+
+  FargateEcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref ParentStackName
+
+
+  # Fargate Roles
+  FargateExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ParentStackName}-fargate-execrole
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+
+  # Role for containers
+  FargateTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ParentStackName}-fargate-taskRole
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: AmazonECSTaskExecutionRolePolicy
+          PolicyDocument:
+            Statement:
+            - Effect: Allow
+              Action:
+                # Allow the ECS Tasks to download images from ECR
+                - 'ecr:GetAuthorizationToken'
+                - 'ecr:BatchCheckLayerAvailability'
+                - 'ecr:GetDownloadUrlForLayer'
+                - 'ecr:BatchGetImage'
+
+                # Allow the ECS tasks to upload logs to CloudWatch
+                - 'logs:CreateLogStream'
+                - 'logs:PutLogEvents'
+              Resource: '*'
+
+  # This security group defines who/where is allowed to access the ECS hosts directly.
+  # By default we're just allowing access from the load balancer.  If you want to SSH 
+  # into the hosts, or expose non-load balanced services you can open their ports here.
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      VpcId: !Ref VPC
+      GroupDescription: Access to the ECS hosts and the tasks/containers that run on them
+      SecurityGroupIngress:
+        # Only allow inbound access to ECS from the ELB
+        - SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup 
+          IpProtocol: -1
+      Tags: 
+        - Key: Name
+          Value: !Sub 'sg-${ParentStackName}-ECS'
+
+  Service: 
+    Type: AWS::ECS::Service
+    DependsOn:
+      - TaskDefinition
+    Properties: 
+      Cluster: !Ref FargateEcsCluster
+      DesiredCount: !Ref DesiredContainers
+      TaskDefinition: !Ref TaskDefinition
+      HealthCheckGracePeriodSeconds: 30
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 75
+      LoadBalancers: 
+        - ContainerName: !Ref AWS::StackName
+          ContainerPort: 5000
+          TargetGroupArn: !Ref TargetGroup
+      LaunchType: FARGATE
+      NetworkConfiguration: 
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            !Split [ ',', !Ref Subnets ]
+          SecurityGroups:
+            - !Ref SecurityGroup
+      PropagateTags: TASK_DEFINITION
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    DependsOn:
+      - CloudWatchLogsGroup
+      - FargateTaskRole
+    Properties:
+      Cpu:
+        Ref: TaskCpu
+      Memory:
+        Ref: TaskMem
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !Ref FargateExecutionRole
+      TaskRoleArn: !GetAtt FargateExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: !Ref AWS::StackName
+          Essential: true
+          Image: 153149144027.dkr.ecr.us-east-1.amazonaws.com/docker-pets:dev-latest
+          #!Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/docker-pets:${DockerVersion}
+          PortMappings:
+          - ContainerPort: 5000
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudWatchLogsGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: Pets
+
+  CloudWatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: !Ref AWS::StackName
+      RetentionInDays: 365
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VPC
+      Port: 80
+      Protocol: HTTP
+      Matcher: 
+        HttpCode: 200-299
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /health
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      TargetType: ip
+
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref Listener
+      Priority: 10
+      Conditions:
+        - Field: path-pattern
+          Values:
+          - "*"
+      Actions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+
+
+  # to learn more about ECS autoscaling, see this doc: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-autoscaling-targettracking.html
+  AutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ParentStackName}-fargate-autoscaling
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole'
+
+  AutoScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: !Ref MinContainers
+      MaxCapacity: !Ref MaxContainers
+      ResourceId: !Join ['/', [service, !Ref FargateEcsCluster, !GetAtt Service.Name]]
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      # "The Amazon Resource Name (ARN) of an AWS Identity and Access Management (IAM) role that allows Application Auto Scaling to modify your scalable target."
+      RoleARN: !GetAtt AutoScalingRole.Arn
+
+  AutoScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub ${ParentStackName}-fargate-AutoScalingPolicy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref AutoScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: 10
+        ScaleOutCooldown: 10
+        # Keep things at or lower than 75% CPU utilization
+        TargetValue: 75
+
+
+Outputs:
+
+  ContainerName:
+    Description: A reference to the Application Load Balancer
+    Value: !Ref AWS::StackName

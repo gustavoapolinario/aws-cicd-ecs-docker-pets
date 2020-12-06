@@ -1,0 +1,86 @@
+Description: >
+  AWS CI/CD ECS example
+
+Parameters:
+
+#   TaskCpu:
+#     Description: How many ECS hosts do you want to initially deploy?
+#     Type: Number
+#     Default: 512
+#     AllowedValues: [ "256", "512", "1024", "2048", "4096" ]
+#     ConstraintDescription: "must be a valid CPU for TaskDefinition."
+    
+#   TaskMem:
+#     Description: How many ECS hosts do you want to initially deploy?
+#     Type: Number
+#     Default: 1024
+#     AllowedValues: [ "512", "1024", "2048", "3072", "4096", "5120", "6144", "7168", "8192", "9216", "10240", "11264", 
+#             "12288", "13312", "14336", "15360", "16384", "17408", "18432", "19456", "20480", "21504", "22528", 
+#             "23552", "24576", "25600", "26624", "27648", "28672", "29696", "30720" ]
+#     ConstraintDescription: "must be a valid Memory for TaskDefinition."
+    
+#   DesiredContainers:
+#     Description: How many Containers to run?
+#     Type: Number
+#     Default: 1
+
+#   MinContainers:
+#     Description: How many Containers is the minimal capacity
+#     Type: Number
+#     Default: 1
+
+#   MaxContainers:
+#     Description: How many Containers is the maximum capacity
+#     Type: Number
+#     Default: 4
+
+  DockerVersion:
+    Description: Version of Apache Docker Image
+    Type: String
+    Default: dev-latest
+
+Resources:
+        
+  VPC:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://aws-cicd-ecs-docker-pets.s3.amazonaws.com/infrastructure/vpc.yml
+
+  ALB:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPC
+    Properties:
+      TemplateURL: https://aws-cicd-ecs-docker-pets.s3.amazonaws.com/infrastructure/loadbalancer.yml
+      Parameters:
+        VPC: !GetAtt VPC.Outputs.VPC
+        Subnets: !GetAtt VPC.Outputs.PublicSubnets
+        ParentStackName: !Ref AWS::StackName
+
+
+  ECS:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - ALB
+    Properties:
+      TemplateURL: https://aws-cicd-ecs-docker-pets.s3.amazonaws.com/infrastructure/ecs.yml
+      Parameters:
+        VPC: !GetAtt VPC.Outputs.VPC
+        Subnets: !GetAtt VPC.Outputs.PublicSubnets
+        LoadBalancerFullName: !GetAtt ALB.Outputs.LoadBalancerFullName
+        Listener: !GetAtt ALB.Outputs.ListenerHTTP
+        ParentStackName: !Ref AWS::StackName
+        LoadBalancerSecurityGroup: !GetAtt ALB.Outputs.LoadBalancerSecurityGroup
+
+        # TaskCpu: !Ref TaskCpu
+        # TaskMem: !Ref TaskMem
+        # DesiredCount: !Ref DesiredCount
+        # MinSize: !Ref MinSize
+        # MaxSize: !Ref MaxSize
+        # DockerVersion: !Ref DockerVersion
+
+Outputs:
+
+  LoadBalancerUrl:
+    Description: The URL of the ALB / Service
+    Value: !GetAtt ALB.Outputs.LoadBalancerUrl
