@@ -264,3 +264,15 @@ Outputs:
   ContainerName:
     Description: A reference to the Application Load Balancer
     Value: !Ref AWS::StackName
+
+  ClusterName:
+    Description: ECS cluster Name
+    Value: !Ref FargateEcsCluster
+
+  ServiceName:
+    Description: ECS service name
+    Value: !GetAtt Service.Name
+
+  Logs:
+    Description: Pets CloudWatch Log Group
+    Value: !Ref CloudWatchLogsGroup

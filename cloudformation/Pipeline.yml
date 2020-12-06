@@ -28,7 +28,23 @@ Parameters:
     Description: Token generated on Github. See https://github.com/settings/tokens to generate one
     Type: String
 
+  ClusterName:
+    Description: Cluster name. See it on CloudFormation Outputs of the environment
+    Type: String
+    Default: '-'
+
+  ServiceName:
+    Description: Service name. See it on CloudFormation Outputs of the environment
+    Type: String
+    Default: '-'
+
+  ContainerName:
+    Description: Service name. See it on CloudFormation Outputs of the environment
+    Type: String
+    Default: '-'
+
 Resources:
+
   PipelineArtifactsBucket:
     #DeletionPolicy: Retain
     Type: AWS::S3::Bucket
@@ -151,6 +167,10 @@ Resources:
             Type: PLAINTEXT
             Name: account_id
             Value: !Ref "AWS::AccountId"
+          -
+            Type: PLAINTEXT
+            Name: container_name
+            Value: !Ref ContainerName
         Type: LINUX_CONTAINER
       Name: !Ref 'AWS::StackName'
       ServiceRole: !Ref CodeBuildRole
@@ -218,6 +238,7 @@ Resources:
             - cloudformation:*
             - rds:*
             - sqs:*
+            - ecs:*
             - iam:PassRole
           Resource: "*"
         - Effect: Allow
@@ -259,7 +280,6 @@ Resources:
                   Owner: gustavoapolinario
                   Branch: master
                   OAuthToken: !Ref GithubOAuthToken
-                  # PollForSourceChanges: True  # Descomment it to poll the github source
               RunOrder: 1
 
         -
@@ -280,5 +300,20 @@ Resources:
               Configuration: 
                 ProjectName: !Ref CodeBuildProject
               RunOrder: 1
-
-        - !Ref "AWS::NoValue"
+        -
+          Name: ECSDeploy
+          Actions:
+            -
+              Name: ECSDeploy
+              InputArtifacts:
+                - Name: BuildArtifact
+              Region: !Ref AWS::Region
+              ActionTypeId: 
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: ECS
+              Configuration: 
+                  ClusterName: !Ref ClusterName
+                  ServiceName: !Ref ServiceName
+              RunOrder: 1

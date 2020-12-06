@@ -74,9 +74,9 @@ Resources:
 
         # TaskCpu: !Ref TaskCpu
         # TaskMem: !Ref TaskMem
-        # DesiredCount: !Ref DesiredCount
-        # MinSize: !Ref MinSize
-        # MaxSize: !Ref MaxSize
+        # DesiredContainers: !Ref DesiredCount
+        # MinContainers: !Ref MinSize
+        # MaxContainers: !Ref MaxSize
         # DockerVersion: !Ref DockerVersion
 
 Outputs:
@@ -84,3 +84,20 @@ Outputs:
   LoadBalancerUrl:
     Description: The URL of the ALB / Service
     Value: !GetAtt ALB.Outputs.LoadBalancerUrl
+
+  ContainerName:
+    Description: A reference to the Application Load Balancer
+    Value: !GetAtt ECS.Outputs.ContainerName
+
+  ClusterName:
+    Description: ECS cluster Name
+    Value: !GetAtt ECS.Outputs.ClusterName
+
+  ServiceName:
+    Description: ECS service name
+    Value: !GetAtt ECS.Outputs.ServiceName
+
+  Logs:
+    Description: Pets CloudWatch Log Group
+    Value: !GetAtt ECS.Outputs.Logs
+

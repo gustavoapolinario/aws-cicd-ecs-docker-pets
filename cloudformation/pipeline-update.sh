@@ -4,6 +4,11 @@ buildCacheBucketName="build-cache-69554"
 githubOAuthToken="?"
 githubProjectUrl=https://github.com/gustavoapolinario/aws-cicd-ecs-docker-pets.git
 
+# Populate it after have the environment. It will be showed on Output tab of CloudFormation
+clusterName="-"
+serviceName="-"
+containerName="-"
+
 aws cloudformation update-stack --stack-name $stackName \
     --region us-east-1 \
     --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
@@ -12,5 +17,8 @@ aws cloudformation update-stack --stack-name $stackName \
                 ParameterKey=BuildCacheBucketName,ParameterValue=$buildCacheBucketName \
                 ParameterKey=EnvironmentName,ParameterValue=dev \
                 ParameterKey=GithubOAuthToken,ParameterValue=$githubOAuthToken \
-                ParameterKey=GithubProjectUrl,ParameterValue=$githubProjectUrl
+                ParameterKey=GithubProjectUrl,ParameterValue=$githubProjectUrl \
+                ParameterKey=ClusterName,ParameterValue=$clusterName \
+                ParameterKey=ServiceName,ParameterValue=$serviceName \
+                ParameterKey=ContainerName,ParameterValue=$containerName
                 
