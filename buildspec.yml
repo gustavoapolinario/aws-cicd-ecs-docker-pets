@@ -9,7 +9,7 @@ phases:
     commands:
       - echo Build started on `date`
       - echo Building the Docker image...
-      - docker build -t docker-pets:new .
+      - docker build -t docker-pets:new web/
       - docker tag docker-pets:new $account_id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-pets:$ambiente-$CODEBUILD_BUILD_NUMBER
       - docker tag docker-pets:new $account_id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-pets:$ambiente-latest
       - |
@@ -23,3 +23,7 @@ phases:
       - echo $account_id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-pets:$ambiente-$CODEBUILD_BUILD_NUMBER
       - docker push $account_id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-pets:$ambiente-$CODEBUILD_BUILD_NUMBER
       - docker push $account_id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-pets:$ambiente-latest
+      - |
+        if [ "$ambiente" = "prod" ] ; then
+          docker tag docker-pets:new $account_id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-pets:latest
+        fi
