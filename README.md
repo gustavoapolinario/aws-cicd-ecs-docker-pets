@@ -2,9 +2,6 @@
 AWS CICD ECS Docker Pets is a sample to run all infraestructure of some docker on AWS Cloud.
 This project is run the docker on ECS and do all CI/CD process to update the container.
 
-![](images/CICD.png)
-![](images/client-ELB-container.png)
-
 # About Docker Pets
 Docker Pets is a simple application that's useful for testing out features of Docker Enterprise Edition.
 To you want, go to [Original Project Docker pets](https://github.com/docker-archive/docker-pets).
@@ -16,6 +13,9 @@ Copy the token generated and save it.
 If you change the environment, you need to create a S3 bucket, send the yml files (ecs, loadlanancer, vpc) and replace inside full-environment.yml the S3 file Url.
 
 # CI/CD
+
+![](images/CICD.png)
+
 For this CI/CD, is used github as source, CodeBuild, CodePipeline and ECS to deploy the new Conainer.
 The Artifacts inside pipeline are stored inside a S3. It is necessary to download source to build and store artifact from build to use in deploy step.
 You can see all logs from build inside CodeBuild, but it is stored on CloudWatch.
@@ -49,6 +49,9 @@ githubProjectUrl is the url of your forked project and githubOAuthToken is the O
 The ClusterName and ServiceName are populated after creat the environment. Dont worry about it
 
 # ECS environment
+
+![](images/client-ELB-container.png)
+
 The environment is based with ECS Fargate.
 To create, it needs a VPC, Loadbalancer to get the connection and send to pets container, ECS Claster (Fargate mode).
 To the comunication between client, container and loadbalancer happen, the CloudFormation create 2 Security Groups. 1 to Loadbalancer whos Allow the Worlds communicate with ALB, and other to Container accept requests from LoadBalancer.
