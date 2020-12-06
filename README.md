@@ -2,8 +2,8 @@
 AWS CICD ECS Docker Pets is a sample to run all infraestructure of some docker on AWS Cloud.
 This project is run the docker on ECS and do all CI/CD process to update the container.
 
-![](CICD.png)
-![](client-ELB-container.png)
+![](images/CICD.png)
+![](images/client-ELB-container.png)
 
 # About Docker Pets
 Docker Pets is a simple application that's useful for testing out features of Docker Enterprise Edition.
