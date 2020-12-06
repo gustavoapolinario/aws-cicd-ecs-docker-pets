@@ -19,6 +19,15 @@ Parameters:
     Type: String
     Default: pipeline-name2
 
+  GithubProjectUrl:
+    Description: Github URL to the project
+    Type: String
+    Default: https://github.com/gustavoapolinario/aws-cicd-ecs-docker-pets.git
+
+  GithubOAuthToken:
+    Description: Token generated on Github. See https://github.com/settings/tokens to generate one
+    Type: String
+
 Resources:
   PipelineArtifactsBucket:
     #DeletionPolicy: Retain
@@ -150,10 +159,126 @@ Resources:
         Type: S3
       Source:
         Type: GITHUB
-        Location: https://github.com/gustavoapolinario/aws-cicd-ecs-docker-pets.git
+        Location: !Ref GithubProjectUrl
         GitCloneDepth: 1
       QueuedTimeoutInMinutes: 30
       LogsConfig:
         CloudWatchLogs: 
           Status: ENABLED
           GroupName: !Ref BuildLogs
+
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-CodePipeline
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codepipeline.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+  CodePipelineRolePolicy:
+    Type: AWS::IAM::Policy
+    DependsOn: CodePipelineRole
+    Properties:
+      PolicyName: !Sub ${AWS::StackName}-CodePipeline-policy
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:GetBucketVersioning
+          Resource: "*"
+        - Effect: Allow
+          Action: 
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:PutObject
+            - s3:List*
+            - s3:DeleteObject
+            - s3:GetBucketAcl
+            - s3:GetBucketLocation
+          Resource: 
+            - !GetAtt PipelineArtifactsBucket.Arn
+            - !Sub ${PipelineArtifactsBucket.Arn}/*
+        - Effect: Allow
+          Action:
+            - codebuild:StartBuild
+            - codebuild:BatchGetBuilds
+          Resource:
+            - !GetAtt CodeBuildProject.Arn
+        - Effect: Allow
+          Action:
+            - cloudwatch:*
+            - s3:*
+            - sns:*
+            - cloudformation:*
+            - rds:*
+            - sqs:*
+            - iam:PassRole
+          Resource: "*"
+        - Effect: Allow
+          Action: 
+            - lambda:InvokeFunction
+            - lambda:ListFunctions
+          Resource: "*"
+          
+      Roles:
+        - !Ref CodePipelineRole
+
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    DependsOn: CodePipelineRole
+    Properties:
+      Name: !Ref 'AWS::StackName'
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref PipelineArtifactsBucket
+
+      Stages:
+        -
+          Name: Source
+          Actions:
+            -
+              Name: Source
+              Namespace: SourceVariables
+              Region: !Ref "AWS::Region"
+              ActionTypeId:
+                  Category: Source
+                  Owner: ThirdParty
+                  Version: 1
+                  Provider: GitHub
+              OutputArtifacts:
+                - Name: SourceArtifact
+              Configuration:
+                  Repo: aws-cicd-ecs-docker-pets
+                  Owner: gustavoapolinario
+                  Branch: master
+                  OAuthToken: !Ref GithubOAuthToken
+                  # PollForSourceChanges: True  # Descomment it to poll the github source
+              RunOrder: 1
+
+        -
+          Name: Build
+          Actions:
+            - 
+              Name: Build
+              InputArtifacts:
+                - Name: SourceArtifact
+              Namespace: BuildVariables
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              OutputArtifacts: 
+                - Name: BuildArtifact
+              Configuration: 
+                ProjectName: !Ref CodeBuildProject
+              RunOrder: 1
+
+        - !Ref "AWS::NoValue"

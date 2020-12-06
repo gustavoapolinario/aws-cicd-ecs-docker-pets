@@ -1,99 +1,47 @@
-# Docker Pets
+# AWS CICD ECS Docker Pets
+
+AWS CICD ECS Docker Pets is a sample to run all infraestructure of some docker on AWS Cloud.
+This project is run the docker on ECS and do all CI/CD process to update the container.
+
+
+# About Docker Pets
 
 Docker Pets is a simple application that's useful for testing out features of Docker Enterprise Edition.
 
-If you are interested in a guide on how to demo Docker Pets on the Universal Control Plane then check out [this tutorial](https://github.com/docker/dcus-hol-2017/tree/master/docker-enterprise).
+To you want, go to [Original Project Docker pets](https://github.com/docker-archive/docker-pets).
 
 
-## Versioning
+# Before start
 
-- `1.0` is the primary version that should be used for demos. `latest` is also tagged with `1.0`
-- `2.0` is a version with minor visual changes. Use this to demonstrate rolling updates from `1.0` to `2.0`
-- `broken` is a version that reports a failed healthcheck. Use this version to demonstrate an unsucessful rolling update.
+Fork the project to your github. It is necessary to you change some code and test your changes.
+CodePipeline need a Github OAuthToken, to generate it go to [https://github.com/settings/tokens]](https://github.com/settings/tokens) click on generate new token, select "public_repo" option and click on Generate Token.
+Copy the token generated and save it.
 
-## Application Architecture
+# Running the build in your account
 
-`docker-pets` can be run as a stateless single-container application or as a multi-container stateful application. The following are the two images used to deploy `docker-pets`:
+## Console Mode
 
-- `chrch/docker-pets` is a front-end Python Flask container that serves up random images of housepets, depending on the given configuration
-- `consul` is a back-end KV store that stores the number of visits that the `web` services recieve. It's configured to bootstrap itself with 3 replicas so that we have fault tolerant persistence.
+Log in AWS console and go to [CloudFormation](https://console.aws.amazon.com/cloudformation/home?region=us-east-1).
+Verify the region that you want to run the sample. You can choose which one you can.
 
-## Building Pets from Scratch
-Pets is hosted on the Docker Hub at `chrch/docker-pets:latest` but you can also build it locally with the following steps
+## Cli Mode
 
-```
-$ git clone https://github.com/dockersamples/docker-pets.git
-$ cd docker-pets/web
-$ docker build -t docker-pets .
-```
+If you want to run with cli, don't forget to confirm your aws credentials is configured and working.
+You can configure with aws configure. If you want instructions, follow the [quickstart](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html).
 
-## Running Pets as a Single Container, Stateless App
-```
-$ docker run -it -p 5000:5000 docker-pets
-```
+You can run the CloudFormation from cli. I did prepare a shell script to update the cloudformation, but you can chance the comand to run the creation too.
+Modify the pipeline-update.sh changing the command from `aws cloudformation update-stack` to `aws cloudformation create-stack`
 
+## Parameters
 
-## Running Pets on Docker for Mac/Windows in Development
-Docker Swarm can easily be set up to run applications on a single developer laptop. The full app can be brought up to run in the same way it would run in production. We use a compose v3 file to deploy a fully fault tolerant frontend and backend, along with the configurations, secrets, and networks required for the application to run.
-pets
-This is the full architecture that is deployed when using [pets-dev-compose.yml](https://github.com/dockersamples/docker-pets/blob/1.0/pets-dev-compose.yml).
+When you run create the stack CloudFormation on Console or before you run the Shell command, you need especify some parameters to CFN works fine.
+If your are on console, the parameters necessaries will show to you on second screen of CloudFormation Creation.
+If your are on cli, see the variables on Shell script.
+You can see the parameters on .yaml files (CloudFormation script file)
 
-```
-~$ git clone https://github.com/dockersamples/docker-pets.git
+S3 name is unique, because that you need change the parameters: PipelineArtifactsBucketName and BuildCacheBucketName to what you want (you can change the number on final of string to work)
 
-~/docker-pets$ docker -v
-Docker version 1.13.1-rc1, build 2527cfc
-
-~/docker-pets$ docker node ls
-ID                           HOSTNAME  STATUS  AVAILABILITY  MANAGER STATUS
-fd3ovikiq7tzmdr70zukbsgbs *  moby      Ready   Active        Leader
-
-~/docker-pets$ docker stack deploy -c pets-dev-compose.yml pets
-```
-
-![](images/pets-dev-arch.png) 
-
-
-## Pets configuration parameters
-The `web` container has several configuration parameters as environment variables:
-
-
-- **`DB`**: Tells `web` where to find `db`. Service name or `<ip>:<port>`.
-- **`DEBUG`**: Puts `web` containers in to debug mode. When mounting a volume for code, they will restart automatically when they detect a change in the code. Defaults to off, set to `True` to turn on.
-- **`ADMIN_PASSWORD_FILE`**: Turns secrets on. If set, will password protect the Admin Console of `web`. Set to the full location of the Swarm secret (`/run/secrets/< X >`)
-
-## Exposed Services
-- Client Web Access - (dev port `5000`, prod URL `pets.dckr.org`)
-	- `/` shows the selected Pet
-	- `/vote` displays the vote selection
-	- `/health` displays the application health of the given container
-	- `/kill` toggles the health off for one of the web servers
-- Admin Console - (dev port `7000`, prod URL `admin.pets.dckr.org`)
-	- `/` displays voting results, redirects to `/login` if secrets are configured
-	- `/login` requests login password
-- Consul Backend - (dev port `8500`, prod ephemeral port)
-	- `/ui` displays Consul server UI
-
-## Voting Option Configuration
-
-- **`OPTION_A`**: Defaults to 'Cats'. Pictures located in `/docker-petspets/web/static/option_a`
-- **`OPTION_B`**: Defaults to 'Dogs'. Pictures located in `/docker-pets/web/static/option_b`
-- **`OPTION_C`**: Defaults to 'Whales'. Pictures located in `/docker-pets/web/static/option_c`
+githubProjectUrl is the url of your forked project and githubOAuthToken is the OAuthToken generated for you.
 
 
 
-
-
-## Running Ppetsets on Docker UCP in Production
-This [full length tutorial](https://github.com/docker/dcus-hol-2017/tree/master/docker-enterprise) will show you how to deploy and demo DDC with the pets app.
-
-Production apps have entirely different requirements when it comes to security, deployment, and also security. Fortunately, deployment on Swarm & UCP is very much the same from development to production. Some minor additions to our compose file add in capabilities for secrets and also for L7 load balancing.
-
-This is the full architecture that is deployed when using [pets-prod-compose.yml](https://github.com/dockersamples/docker-pets/blob/1.0/pets-prod-compose.yml).
-
-```
-$ echo "mysecret" | docker secret create admin_password_v1 -
-$ docker stack deploy -c pets-prod-compose.yml pets
-```
-
-![](images/pets-prod-arch.png) 
