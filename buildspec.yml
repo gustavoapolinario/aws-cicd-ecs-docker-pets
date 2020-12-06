@@ -9,7 +9,7 @@ phases:
     commands:
       - echo Build started on `date`
       - echo Building the Docker image...
-      - docker build -t docker-pets:new -f build/Dockerfile_composer .
+      - docker build -t docker-pets:new .
       - docker tag docker-pets:new $account_id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-pets:$ambiente-$CODEBUILD_BUILD_NUMBER
       - docker tag docker-pets:new $account_id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-pets:$ambiente-latest
       - |
